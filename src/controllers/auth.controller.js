@@ -99,4 +99,17 @@ const loginUsuario = async (req, res) => {
   }
 };
 
-module.exports = { registrarUsuario, loginUsuario };
+const obtenerUsuarios = async (req, res) => {
+  try {
+    const usuarios = await Usuario.findAll({
+      attributes: ['id', 'nombre', 'apellido', 'usuario', 'correo', 'telefono', 'id_rol', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+    });
+    return res.status(200).json({ ok: true, total: usuarios.length, data: usuarios });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { registrarUsuario, loginUsuario, obtenerUsuarios };

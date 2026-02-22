@@ -61,4 +61,32 @@ const asignarEspecialidad = async (req, res) => {
   }
 };
 
-module.exports = { agregarEspecialidad, obtenerEspecialidades, asignarEspecialidad };
+const editarEspecialidad = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, descripcion } = req.body;
+    const especialidad = await Especialidad.findOne({ where: { id } });
+    if (!especialidad) return res.status(404).json({ ok: false, mensaje: 'Especialidad no encontrada' });
+    await especialidad.update({ nombre: nombre || especialidad.nombre, descripcion: descripcion || especialidad.descripcion });
+    return res.status(200).json({ ok: true, mensaje: 'Especialidad actualizada correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+const eliminarEspecialidad = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const especialidad = await Especialidad.findOne({ where: { id } });
+    if (!especialidad) return res.status(404).json({ ok: false, mensaje: 'Especialidad no encontrada' });
+    await especialidad.destroy();
+    return res.status(200).json({ ok: true, mensaje: 'Especialidad eliminada correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { agregarEspecialidad, obtenerEspecialidades, asignarEspecialidad, editarEspecialidad, eliminarEspecialidad };
+

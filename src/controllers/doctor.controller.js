@@ -286,10 +286,61 @@ const verDisponibilidad = async (req, res) => {
   }
 };
 
-module.exports = {
-  registrarDoctor,
-  aprobarDoctor,
-  obtenerDoctores,
-  buscarPorEspecialidad,
-  verDisponibilidad,
+const obtenerDoctoresPendientes = async (req, res) => {
+  try {
+    const doctores = await Doctor.findAll({
+      where: { estado: 'pendiente' },
+      include: [{
+        model: Usuario,
+        as: 'usuario',
+        attributes: ['id', 'nombre', 'apellido', 'correo', 'telefono'],
+      }],
+    });
+    return res.status(200).json({ ok: true, total: doctores.length, data: doctores });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
 };
+
+const editarDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, apellido, telefono, consultorio, duracion_cita } = req.body;
+
+    const doctor = await Doctor.findOne({ where: { id } });
+    if (!doctor) return res.status(404).json({ ok: false, mensaje: 'Doctor no encontrado' });
+
+    await doctor.update({
+      consultorio: consultorio || doctor.consultorio,
+      duracion_cita: duracion_cita || doctor.duracion_cita,
+    });
+
+    await Usuario.update(
+      { nombre: nombre || undefined, apellido: apellido || undefined, telefono: telefono || undefined },
+      { where: { id: doctor.id_usuario } }
+    );
+
+    return res.status(200).json({ ok: true, mensaje: 'Doctor actualizado correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+const eliminarDoctor = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doctor = await Doctor.findOne({ where: { id } });
+    if (!doctor) return res.status(404).json({ ok: false, mensaje: 'Doctor no encontrado' });
+
+    await doctor.update({ estado: 'inactivo' });
+
+    return res.status(200).json({ ok: true, mensaje: 'Doctor eliminado correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { registrarDoctor, aprobarDoctor, obtenerDoctores, buscarPorEspecialidad, verDisponibilidad, obtenerDoctoresPendientes, editarDoctor, eliminarDoctor };

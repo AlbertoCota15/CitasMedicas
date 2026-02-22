@@ -356,11 +356,25 @@ const completarCita = async (req, res) => {
   }
 };
 
+
+const obtenerTodasCitas = async (req, res) => {
+  try {
+    const citas = await Cita.findAll({
+      order: [['fecha', 'DESC']],
+    });
+    return res.status(200).json({ ok: true, total: citas.length, data: citas });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   agendarCita,
   obtenerCitasPaciente,
   cancelarCita,
   obtenerCitasDoctor,
   reprogramarCita,
-  completarCita 
+  completarCita,
+  obtenerTodasCitas  
 };
