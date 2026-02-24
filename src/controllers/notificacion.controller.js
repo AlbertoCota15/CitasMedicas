@@ -1,5 +1,6 @@
+const md5 = require('md5');
 const Notificacion = require('../models/notificacion.model');
-
+const Usuario = require('../models/usuario.model');
 // Obtener todas las notificaciones del usuario
 const obtenerNotificaciones = async (req, res) => {
   try {
@@ -83,4 +84,50 @@ const marcarTodasLeidas = async (req, res) => {
   }
 };
 
-module.exports = { obtenerNotificaciones, obtenerNoLeidas, marcarLeida, marcarTodasLeidas };
+const enviarNotificacion = async (req, res) => {
+  try {
+    const { id_usuario, titulo, mensaje } = req.body;
+
+    const usuario = await Usuario.findOne({ where: { id: id_usuario } });
+    if (!usuario) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+
+    await Notificacion.create({
+      id: md5(id_usuario + titulo + Date.now()),
+      id_usuario,
+      id_cita: null,
+      titulo,
+      mensaje,
+      leida: false,
+    });
+
+    return res.status(201).json({ ok: true, mensaje: 'Notificación enviada correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+const enviarNotificacionTodos = async (req, res) => {
+  try {
+    const { titulo, mensaje } = req.body;
+
+    const usuarios = await Usuario.findAll();
+    await Promise.all(usuarios.map(async (u) => {
+      await Notificacion.create({
+        id: md5(u.id + titulo + Date.now() + Math.random()),
+        id_usuario: u.id,
+        id_cita: null,
+        titulo,
+        mensaje,
+        leida: false,
+      });
+    }));
+
+    return res.status(201).json({ ok: true, mensaje: `Notificación enviada a ${usuarios.length} usuarios` });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { obtenerNotificaciones, obtenerNoLeidas, marcarLeida, marcarTodasLeidas, enviarNotificacion, enviarNotificacionTodos };

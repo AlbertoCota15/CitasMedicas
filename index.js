@@ -13,6 +13,8 @@ const historialRoutes = require('./src/routes/historial.routes');
 const perfilRoutes = require('./src/routes/perfil.routes');
 const calificacionRoutes = require('./src/routes/calificacion.routes');
 const recuperarRoutes = require('./src/routes/recuperar.routes');
+const reporteRoutes = require('./src/routes/reporte.routes');
+const usuarioRoutes = require('./src/routes/usuario.routes');
 
 
 dotenv.config();
@@ -68,6 +70,8 @@ app.use('/api/historial', historialRoutes);
 app.use('/api/perfil', perfilRoutes);
 app.use('/api/calificaciones', calificacionRoutes);
 app.use('/api/recuperar', recuperarRoutes);
+app.use('/api/reportes', reporteRoutes);
+app.use('/api/usuarios', usuarioRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: '¡API Citas Médicas funcionando! 🏥' });

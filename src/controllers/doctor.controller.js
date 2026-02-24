@@ -218,8 +218,9 @@ const verDisponibilidad = async (req, res) => {
       "viernes",
       "sabado",
     ];
-    const diaSemana = diasSemana[new Date(fecha).getDay()];
-
+    //const diaSemana = diasSemana[new Date(fecha).getDay()];
+const [anio, mes, dia] = fecha.split("-").map(Number);
+const diaSemana = diasSemana[new Date(anio, mes - 1, dia).getDay()];
     // Verificar que el doctor tenga horario ese día
     const horario = await HorarioDoctor.findOne({
       where: { id_doctor, dia_semana: diaSemana, disponible: true },
