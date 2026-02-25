@@ -100,4 +100,46 @@ const eliminarUsuario = async (req, res) => {
   }
 };
 
-module.exports = { obtenerUsuarios, crearUsuario, editarUsuario, eliminarUsuario };
+const obtenerPerfil = async (req, res) => {
+  try {
+    const id = req.usuario.id;
+    const usuario = await Usuario.findOne({
+      where: { id },
+      attributes: { exclude: ['contrasena'] }
+    });
+    if (!usuario) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+    return res.status(200).json({ ok: true, data: usuario });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+const editarPerfil = async (req, res) => {
+  try {
+    const id = req.usuario.id;
+    const { nombre, apellido, telefono, correo, contrasena_actual, nueva_contrasena } = req.body;
+
+    const usuario = await Usuario.findOne({ where: { id } });
+    if (!usuario) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+
+    const correoExiste = await Usuario.findOne({ where: { correo, id: { [Op.ne]: id } } });
+    if (correoExiste) return res.status(400).json({ ok: false, mensaje: 'El correo ya está en uso' });
+
+    // Si quiere cambiar contraseña
+    if (nueva_contrasena) {
+      if (!contrasena_actual) return res.status(400).json({ ok: false, mensaje: 'Ingresa tu contraseña actual' });
+      if (usuario.contrasena !== md5(contrasena_actual)) return res.status(400).json({ ok: false, mensaje: 'Contraseña actual incorrecta' });
+      await usuario.update({ nombre, apellido, telefono, correo, contrasena: md5(nueva_contrasena) });
+    } else {
+      await usuario.update({ nombre, apellido, telefono, correo });
+    }
+
+    return res.status(200).json({ ok: true, mensaje: 'Perfil actualizado correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { obtenerUsuarios, crearUsuario, editarUsuario, eliminarUsuario, obtenerPerfil, editarPerfil };

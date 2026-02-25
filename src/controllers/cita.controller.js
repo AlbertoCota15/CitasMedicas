@@ -676,6 +676,109 @@ const obtenerCitasHoy = async (req, res) => {
   }
 };
 
+const historialPaciente = async (req, res) => {
+  try {
+    const id_paciente = req.usuario.id;
+    const Especialidad = require("../models/especialidad.model");
+
+    const citas = await Cita.findAll({
+      where: { id_paciente, estado: "completada" },
+      order: [["fecha", "DESC"]],
+    });
+
+    const historial = await Promise.all(
+      citas.map(async (cita) => {
+        const doctor = await Doctor.findOne({ where: { id: cita.id_doctor } });
+        const usuarioDoctor = doctor
+          ? await Usuario.findOne({
+              where: { id: doctor.id_usuario },
+              attributes: ["nombre", "apellido"],
+            })
+          : null;
+        const especialidad = await Especialidad.findOne({
+          where: { id: cita.id_especialidad },
+        });
+        return {
+          ...cita.toJSON(),
+          doctor: usuarioDoctor
+            ? `Dr. ${usuarioDoctor.nombre} ${usuarioDoctor.apellido}`
+            : "Desconocido",
+          especialidad: especialidad ? especialidad.nombre : "Desconocido",
+        };
+      }),
+    );
+
+    return res
+      .status(200)
+      .json({ ok: true, total: historial.length, data: historial });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ ok: false, mensaje: "Error interno del servidor" });
+  }
+};
+
+const historialPacienteDoctor = async (req, res) => {
+  try {
+    const { id_paciente } = req.params;
+    const id_usuario = req.usuario.id;
+    const Especialidad = require("../models/especialidad.model");
+
+    // Verificar que sea doctor
+    const doctor = await Doctor.findOne({ where: { id_usuario } });
+    if (!doctor)
+      return res.status(403).json({ ok: false, mensaje: "No tienes permisos" });
+
+    const paciente = await Usuario.findOne({
+      where: { id: id_paciente },
+      attributes: ["nombre", "apellido", "correo", "telefono"],
+    });
+    if (!paciente)
+      return res
+        .status(404)
+        .json({ ok: false, mensaje: "Paciente no encontrado" });
+
+    const citas = await Cita.findAll({
+      where: { id_paciente, estado: "completada" },
+      order: [["fecha", "DESC"]],
+    });
+
+    const historial = await Promise.all(
+      citas.map(async (cita) => {
+        const doctorCita = await Doctor.findOne({
+          where: { id: cita.id_doctor },
+        });
+        const usuarioDoctor = doctorCita
+          ? await Usuario.findOne({
+              where: { id: doctorCita.id_usuario },
+              attributes: ["nombre", "apellido"],
+            })
+          : null;
+        const especialidad = await Especialidad.findOne({
+          where: { id: cita.id_especialidad },
+        });
+        return {
+          ...cita.toJSON(),
+          doctor: usuarioDoctor
+            ? `Dr. ${usuarioDoctor.nombre} ${usuarioDoctor.apellido}`
+            : "Desconocido",
+          especialidad: especialidad ? especialidad.nombre : "Desconocido",
+        };
+      }),
+    );
+
+    return res
+      .status(200)
+      .json({ ok: true, total: historial.length, paciente, data: historial });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ ok: false, mensaje: "Error interno del servidor" });
+  }
+};
+
 module.exports = {
   agendarCita,
   obtenerCitasPaciente,
@@ -687,4 +790,6 @@ module.exports = {
   obtenerCitasDelDoctor,
   agendarCitaExterna,
   obtenerCitasHoy,
+  historialPaciente,
+  historialPacienteDoctor,
 };

@@ -5,7 +5,7 @@ const Doctor = require("../models/doctor.model");
 const Usuario = require("../models/usuario.model");
 const Especialidad = require("../models/especialidad.model");
 const DoctorEspecialidad = require("../models/doctor_especialidad.model");
-const { Sequelize } = require('sequelize');
+const { Sequelize } = require("sequelize");
 
 // Reporte general del sistema
 const reporteGeneral = async (req, res) => {
@@ -710,52 +710,81 @@ const reporteCitasEstadoPDF = async (req, res) => {
 
 const datosGraficas = async (req, res) => {
   try {
-    const { Sequelize } = require('sequelize');
+    const { Sequelize } = require("sequelize");
 
     // Citas por día de la semana
-    const diasSemanaLabel = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const diasSemanaLabel = [
+      "Lunes",
+      "Martes",
+      "Miércoles",
+      "Jueves",
+      "Viernes",
+      "Sábado",
+    ];
     const diasDOW = [1, 2, 3, 4, 5, 6]; // PostgreSQL DOW: 0=domingo, 1=lunes...6=sábado
-    const citasPorDia = await Promise.all(diasDOW.map(async (dia, i) => {
-      const total = await Cita.count({
-        where: Sequelize.where(
-          Sequelize.fn('EXTRACT', Sequelize.literal('DOW FROM "fecha"')),
-          dia
-        )
-      });
-      return { dia: diasSemanaLabel[i], total };
-    }));
+    const citasPorDia = await Promise.all(
+      diasDOW.map(async (dia, i) => {
+        const total = await Cita.count({
+          where: Sequelize.where(
+            Sequelize.fn("EXTRACT", Sequelize.literal('DOW FROM "fecha"')),
+            dia,
+          ),
+        });
+        return { dia: diasSemanaLabel[i], total };
+      }),
+    );
 
     // Citas por mes (año actual)
     const anio = new Date().getFullYear();
-    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const citasPorMes = await Promise.all(meses.map(async (mes, i) => {
-      const mesNum = String(i + 1).padStart(2, '0');
-      const ultimoDia = new Date(anio, i + 1, 0).getDate();
-      const total = await Cita.count({
-        where: {
-          fecha: {
-            [Op.between]: [`${anio}-${mesNum}-01`, `${anio}-${mesNum}-${ultimoDia}`]
-          }
-        }
-      });
-      return { mes, total };
-    }));
+    const meses = [
+      "Ene",
+      "Feb",
+      "Mar",
+      "Abr",
+      "May",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dic",
+    ];
+    const citasPorMes = await Promise.all(
+      meses.map(async (mes, i) => {
+        const mesNum = String(i + 1).padStart(2, "0");
+        const ultimoDia = new Date(anio, i + 1, 0).getDate();
+        const total = await Cita.count({
+          where: {
+            fecha: {
+              [Op.between]: [
+                `${anio}-${mesNum}-01`,
+                `${anio}-${mesNum}-${ultimoDia}`,
+              ],
+            },
+          },
+        });
+        return { mes, total };
+      }),
+    );
 
     // Top doctores con más citas completadas
-    const doctores = await Doctor.findAll({ where: { estado: 'activo' } });
-    const topDoctores = await Promise.all(doctores.map(async (doctor) => {
-      const usuario = await Usuario.findOne({
-        where: { id: doctor.id_usuario },
-        attributes: ['nombre', 'apellido'],
-      });
-      const completadas = await Cita.count({
-        where: { id_doctor: doctor.id, estado: 'completada' },
-      });
-      return {
-        nombre: usuario ? `Dr. ${usuario.nombre} ${usuario.apellido}` : 'N/A',
-        completadas,
-      };
-    }));
+    const doctores = await Doctor.findAll({ where: { estado: "activo" } });
+    const topDoctores = await Promise.all(
+      doctores.map(async (doctor) => {
+        const usuario = await Usuario.findOne({
+          where: { id: doctor.id_usuario },
+          attributes: ["nombre", "apellido"],
+        });
+        const completadas = await Cita.count({
+          where: { id_doctor: doctor.id, estado: "completada" },
+        });
+        return {
+          nombre: usuario ? `Dr. ${usuario.nombre} ${usuario.apellido}` : "N/A",
+          completadas,
+        };
+      }),
+    );
     topDoctores.sort((a, b) => b.completadas - a.completadas);
 
     return res.status(200).json({
@@ -768,7 +797,137 @@ const datosGraficas = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
+    return res
+      .status(500)
+      .json({ ok: false, mensaje: "Error interno del servidor" });
+  }
+};
+
+const historialPDF = async (req, res) => {
+  try {
+    const id_paciente = req.usuario.id;
+    const Especialidad = require("../models/especialidad.model");
+
+    const paciente = await Usuario.findOne({
+      where: { id: id_paciente },
+      attributes: ["nombre", "apellido", "correo", "telefono"],
+    });
+    const citas = await Cita.findAll({
+      where: { id_paciente, estado: "completada" },
+      order: [["fecha", "DESC"]],
+    });
+
+    const historial = await Promise.all(
+      citas.map(async (cita) => {
+        const doctor = await Doctor.findOne({ where: { id: cita.id_doctor } });
+        const usuarioDoctor = doctor
+          ? await Usuario.findOne({
+              where: { id: doctor.id_usuario },
+              attributes: ["nombre", "apellido"],
+            })
+          : null;
+        const especialidad = await Especialidad.findOne({
+          where: { id: cita.id_especialidad },
+        });
+        return {
+          ...cita.toJSON(),
+          doctor: usuarioDoctor
+            ? `Dr. ${usuarioDoctor.nombre} ${usuarioDoctor.apellido}`
+            : "Desconocido",
+          especialidad: especialidad ? especialidad.nombre : "Desconocido",
+        };
+      }),
+    );
+
+    const doc = new PDFDocument({ margin: 40, size: "A4" });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=historial_${paciente.nombre}_${paciente.apellido}.pdf`,
+    );
+    doc.pipe(res);
+
+    // Header
+    doc.rect(0, 0, 612, 80).fill("#1565c0");
+    doc
+      .fontSize(22)
+      .fillColor("white")
+      .text("Historial Clínico", 40, 18, { align: "center" });
+    doc
+      .fontSize(12)
+      .fillColor("white")
+      .text(`${paciente.nombre} ${paciente.apellido}`, 40, 48, {
+        align: "center",
+      });
+    doc.y = 100;
+
+    // Info paciente
+    doc.rect(40, doc.y, 532, 50).fill("#f5f5f5");
+    doc
+      .fontSize(10)
+      .fillColor("#333")
+      .text(`Correo: ${paciente.correo}`, 55, doc.y + 8)
+      .text(`Teléfono: ${paciente.telefono || "No registrado"}`, 55, doc.y + 22)
+      .text(`Total consultas: ${historial.length}`, 350, doc.y - 14);
+    doc.y += 65;
+
+    // Consultas
+    historial.forEach((cita, i) => {
+      if (doc.y > 700) doc.addPage();
+
+      const cardY = doc.y;
+      doc
+        .rect(40, cardY, 532, 90)
+        .fill(i % 2 === 0 ? "#f9f9f9" : "#ffffff")
+        .stroke("#eeeeee");
+
+      doc
+        .fontSize(11)
+        .fillColor("#1565c0")
+        .text(
+          `${cita.fecha} - ${cita.hora_inicio} a ${cita.hora_fin}`,
+          55,
+          cardY + 8,
+        );
+      doc
+        .fontSize(10)
+        .fillColor("#333")
+        .text(`Doctor: ${cita.doctor}`, 55, cardY + 25)
+        .text(`Especialidad: ${cita.especialidad}`, 55, cardY + 40)
+        .text(`Motivo: ${cita.motivo || "Sin motivo"}`, 55, cardY + 55);
+
+      if (cita.notas) {
+        doc
+          .fontSize(9)
+          .fillColor("#555")
+          .text(`Notas: ${cita.notas}`, 55, cardY + 70, { width: 500 });
+      }
+
+      doc.y = cardY + 100;
+    });
+
+    if (historial.length === 0) {
+      doc
+        .fontSize(12)
+        .fillColor("#888")
+        .text("No hay consultas completadas en el historial", {
+          align: "center",
+        });
+    }
+
+    doc.moveDown();
+    doc
+      .fontSize(9)
+      .fillColor("#888")
+      .text(`Generado el ${new Date().toLocaleDateString("es-MX")}`, {
+        align: "right",
+      });
+    doc.end();
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ ok: false, mensaje: "Error interno del servidor" });
   }
 };
 
@@ -782,4 +941,5 @@ module.exports = {
   reporteEspecialidadesPDF,
   reporteCitasEstadoPDF,
   datosGraficas,
+  historialPDF,
 };
